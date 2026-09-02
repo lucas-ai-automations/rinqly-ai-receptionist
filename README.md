@@ -21,15 +21,14 @@ This repository is a description of how it is built. The product is live and the
 ```mermaid
 flowchart LR
     subgraph Callers
-        P[Phone caller] -->|PSTN| TW[Twilio]
+        P[Phone caller] -->|PSTN| TEL[Telephony]
         W[Website visitor] --> WG[Chat widget]
     end
-    TW -->|SIP| LK[LiveKit Cloud room]
-    LK <--> VW[Voice worker<br/>Python · OpenAI Realtime<br/>tools · turn detection · barge-in]
+    TEL --> VR[Voice runtime<br/>speech · tools · turn detection · barge-in]
     WG --> API[Next.js API on Vercel]
-    VW -->|tool calls| API
+    VR -->|tool calls| API
     API --> DB[(Supabase Postgres<br/>RLS per tenant · pgvector)]
-    API --> AI[Claude Sonnet<br/>chat · builder · assistant]
+    API --> AI[LLM<br/>chat · builder · assistant]
     API --> INT[Calendars & CRMs<br/>Google · Outlook · HubSpot · Salesforce ·<br/>Pipedrive · Close · GoHighLevel · Copper ·<br/>Slack · Zapier · Mailchimp · ActiveCampaign ·<br/>Airtable · Asana · ClickUp · Shopify]
     API --> ST[Stripe]
     API --> RS[Resend email · Telegram ops alerts]
@@ -38,24 +37,24 @@ flowchart LR
 ```
 
 - **Web app:** Next.js on Vercel, TypeScript throughout. Server routes use the owner's own session, so Postgres row-level security is the tenant boundary, not application code.
-- **Voice:** Twilio delivers the call over SIP into a LiveKit room; a Python worker runs the conversation on OpenAI Realtime with the business's prompt, knowledge and tools. Web test calls join the same room type from the browser, so the owner hears exactly what a caller hears.
-- **Language models:** OpenAI Realtime for the spoken conversation; Claude Sonnet for the chat widget, the agent builder and the dashboard assistant, with the stable part of every system prompt in a cached prefix.
+- **Voice:** a dedicated voice runtime takes the call from the telephony side and runs the conversation with the business's prompt, knowledge and tools. Web test calls go through the same runtime from the browser, so the owner hears exactly what a caller hears. The specific speech and telephony stack is not published.
+- **Language models:** a frontier model behind the chat widget, the agent builder and the dashboard assistant, with the stable part of every system prompt in a cached prefix.
 - **Knowledge:** the owner's text, uploaded PDFs and crawled pages are chunked into pgvector, scoped to the agent or widget they belong to, retrieved per turn with a similarity floor and reranked.
 - **Integrations:** 15 calendars, CRMs and automation tools plus Shopify, each behind the provider's own OAuth or API key, connected from the owner's settings page. Custom HTTP tools can be generated from a docs URL for anything else.
 
 ## Voice: 420 ms, and what we measure behind it
 
-**Rinqly's headline figure is 420 ms**: the time from the caller finishing a sentence to the receptionist starting to speak, on the demo line. The table below is how that breaks down per stage, from the worker's own timing on production calls, not from the caller's side, because a robot caller's speech recognition turned "$159" into "$15" once and we shipped a prompt change for a bug that did not exist. Every figure is a floor: the Twilio leg adds its own 100–200 ms.
+**Rinqly's headline figure is 420 ms**: the time from the caller finishing a sentence to the receptionist starting to speak, on the demo line. The table below is how that breaks down per stage, from the voice runtime's own timing on production calls, not from the caller's side, because a robot caller's speech recognition turned "$159" into "$15" once and we shipped a prompt change for a bug that did not exist. Every figure is a floor: the carrier leg adds its own 100–200 ms.
 
 | measure | value | how |
 |---|---|---|
-| time to first token after the caller stops | ~575 ms median | per-turn telemetry, semantic turn detection |
-| first audio to the caller | ~0.6–0.8 s | worker `[LATENCY]` lines across dental, home services, law firm |
+| time to first token after the caller stops | ~575 ms median | per-turn telemetry |
+| first audio to the caller | ~0.6–0.8 s | runtime timing across dental, home services, law firm |
 | full answer spoken | ~1.2 s | same |
 | barge-in: caller interrupts, agent stops | about a second | robot-caller measurement, 1.05–2.12 s across industries |
-| warm greeting after the caller joins | ~0.5 s | worker |
+| warm greeting after the caller joins | ~0.5 s | runtime |
 
-The honest finding from this work: the model is not the bottleneck. Most of what a caller experiences as delay is turn detection deciding they have finished speaking, and the semantic detector we run is already twice as fast as server VAD in production.
+The honest finding from this work: the model is not the bottleneck. Most of what a caller experiences as delay is turn detection deciding they have finished speaking, and the detector we run is already twice as fast as the plain silence-based alternative in production.
 
 ## Multi-tenant and safe by construction
 
@@ -94,7 +93,7 @@ sequenceDiagram
 
 The product is tested the way it is used, against production, with throwaway tenants that are created and deleted by the run.
 
-- **Live voice calls.** A robot caller joins a real LiveKit room with its own Realtime session and holds a spoken conversation through the scripted scenarios of an industry (dental, home services, law firm, restaurant): booking, FAQ, transfer, objections. The run is scored against the worker's transcript and its own latency lines, plus database checks (call log written, transcript stored, booking row created, summary and sentiment present), plus an LLM judge run three times for stability.
+- **Live voice calls.** A robot caller joins a real call with its own speech session and holds a spoken conversation through the scripted scenarios of an industry (dental, home services, law firm, restaurant): booking, FAQ, transfer, objections. The run is scored against the runtime's transcript and its own latency lines, plus database checks (call log written, transcript stored, booking row created, summary and sentiment present), plus an LLM judge run three times for stability.
 - **Text evals across 19 industries and three products.** About 1,100 checks per full run: does the agent answer from the knowledge base, refuse what it cannot do, capture the lead, book, and stay in scope, in English and in Lithuanian.
 - **Builder scenarios.** Eleven conversations driven by a simulated owner with a persona, judged on continuity (never re-ask a known fact), save gates, editing an existing agent, integrations and support tickets.
 - **Assistant probe.** Fifteen deterministic checks with no judge: prose where prose belongs, reads that call the tools, an injected instruction in a transcript that is reported rather than obeyed, a confirmation card that changes nothing until confirmed and refuses a replay, and writes that land in the database.
@@ -115,7 +114,7 @@ The habit that came out of this: suspect the probe before the product. About hal
 
 ## Stack
 
-Next.js · TypeScript · Supabase (Postgres, RLS, pgvector, Auth, Storage) · LiveKit Cloud · OpenAI Realtime · Claude Sonnet · Twilio · Stripe · Resend · Vercel · Python worker · vitest · Chrome DevTools Protocol for the probes.
+Next.js · TypeScript · Supabase (Postgres, RLS, pgvector, Auth, Storage) · Stripe · Resend · Vercel · vitest · Chrome DevTools Protocol for the probes. The voice and speech stack is intentionally not listed.
 
 ---
 
