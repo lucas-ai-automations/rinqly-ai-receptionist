@@ -10,7 +10,7 @@ This repository is a description of how it is built. The product is live and the
 
 ## What it does
 
-- **Voice receptionist.** Answers inbound calls on a number bought inside Rinqly or forwarded from the business's existing line. Books into Google Calendar or Outlook, answers FAQs, takes messages, transfers calls, sends SMS confirmations, knows the business hours and location.
+- **Voice receptionist.** Answers inbound calls in about 420 ms from the moment the caller stops talking, and can be interrupted mid-sentence. Runs on a number bought inside Rinqly or forwarded from the business's existing line. Books into Google Calendar or Outlook, answers FAQs, takes messages, transfers calls, sends SMS confirmations, knows the business hours and location.
 - **Chat widget.** One script tag on the business's site. Same knowledge, same tools, lead capture, order status for Shopify stores.
 - **Outbound sales agent.** Calls an uploaded lead list in each lead's own time zone during allowed hours, pitches, handles objections and books meetings. A campaign starts only after the owner attests to consent for every contact.
 - **Dashboard assistant.** The home screen is a conversation: "what happened on my calls today", "close on Saturdays from now on", "turn Riley off", "get me a 305 number". Reads answer from the account; changes go through the same allowlists the settings pages use; anything risky gets a confirmation card first.
@@ -43,9 +43,9 @@ flowchart LR
 - **Knowledge:** the owner's text, uploaded PDFs and crawled pages are chunked into pgvector, scoped to the agent or widget they belong to, retrieved per turn with a similarity floor and reranked.
 - **Integrations:** 15 calendars, CRMs and automation tools plus Shopify, each behind the provider's own OAuth or API key, connected from the owner's settings page. Custom HTTP tools can be generated from a docs URL for anything else.
 
-## Voice: what we measure
+## Voice: 420 ms, and what we measure behind it
 
-Numbers below come from the worker's own timing on production calls, not from the caller's side, because a robot caller's speech recognition turned "$159" into "$15" once and we shipped a prompt change for a bug that did not exist. Every figure is a floor: the Twilio leg adds its own 100–200 ms.
+**Rinqly's headline figure is 420 ms**: the time from the caller finishing a sentence to the receptionist starting to speak, on the demo line. The table below is how that breaks down per stage, from the worker's own timing on production calls, not from the caller's side, because a robot caller's speech recognition turned "$159" into "$15" once and we shipped a prompt change for a bug that did not exist. Every figure is a floor: the Twilio leg adds its own 100–200 ms.
 
 | measure | value | how |
 |---|---|---|
