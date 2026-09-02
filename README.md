@@ -44,7 +44,9 @@ flowchart LR
 
 ## Voice: 420 ms, and what we measure behind it
 
-**Rinqly's headline figure is 420 ms**: the time from the caller finishing a sentence to the receptionist starting to speak, on the demo line. The table below is how that breaks down per stage, from the voice runtime's own timing on production calls, not from the caller's side, because a robot caller's speech recognition turned "$159" into "$15" once and we shipped a prompt change for a bug that did not exist. Every figure is a floor: the carrier leg adds its own 100–200 ms.
+**Rinqly's headline figure is 420 ms**: caller stops talking, receptionist starts speaking, measured on the demo line, which has no carrier in the path.
+
+**The table is a different measurement, and its numbers are larger on purpose.** It is per-stage timing from the voice runtime on real production calls that came in through a phone carrier, where the carrier leg alone adds 100–200 ms and turn detection has to decide the caller has actually finished. We publish those rather than the demo figure because they are what a customer's caller experiences. They are the runtime's own timing, not a robot caller's, because a robot caller's speech recognition once turned "$159" into "$15" and we shipped a prompt change for a bug that did not exist.
 
 | measure | value | how |
 |---|---|---|
